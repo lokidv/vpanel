@@ -1,48 +1,95 @@
 {
-  "log": {
-    "access": "none",
-    "dnsLog": false,
-    "error": "./error.log",
-    "loglevel": "warning"
-  },
   "api": {
-    "tag": "api",
     "services": [
       "HandlerService",
       "LoggerService",
       "StatsService"
+    ],
+    "tag": "api"
+  },
+  "dns": {
+    "servers": [
+      "4.2.2.4",
+      "8.8.8.8"
     ]
   },
   "inbounds": [
     {
-      "tag": "api",
       "listen": "127.0.0.1",
       "port": 62789,
       "protocol": "dokodemo-door",
       "settings": {
         "address": "127.0.0.1"
-      }
+      },
+      "tag": "api"
     }
   ],
+  "log": {
+    "access": "",
+    "dnsLog": false,
+    "error": "",
+    "loglevel": "warning"
+  },
+  "observatory": {
+    "probeInterval": "12s",
+    "probeURL": "https://www.google.com/generate_204",
+    "subjectSelector": [
+      "proxy-"
+    ]
+  },
   "outbounds": [
     {
-      "tag": "direct",
       "protocol": "freedom",
-      "settings": {
-        "domainStrategy": "UseIP"
-      }
+      "settings": {},
+      "tag": "direct"
     },
     {
-      "tag": "blocked",
       "protocol": "blackhole",
-      "settings": {}
+      "settings": {
+        "response": {
+          "type": "http"
+        }
+      },
+      "tag": "blocked"
+    },
+    {
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "UseIPv4"
+      },
+      "tag": "IPv4"
+    },
+    {
+      "mux": {
+        "concurrency": -1,
+        "enabled": false
+      },
+      "protocol": "socks",
+      "settings": {
+        "servers": [
+          {
+            "address": "127.0.0.1",
+            "level": 0,
+            "ota": false,
+            "port": 1001
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp"
+      },
+      "tag": "intersocks-a"
     }
   ],
   "policy": {
     "levels": {
       "0": {
+        "connIdle": 300,
+        "downlinkOnly": 5,
+        "handshake": 4,
         "statsUserDownlink": true,
-        "statsUserUplink": true
+        "statsUserUplink": true,
+        "uplinkOnly": 2
       }
     },
     "system": {
@@ -53,28 +100,44 @@
     }
   },
   "routing": {
-    "domainStrategy": "AsIs",
+    "balancers": [
+      {
+        "selector": [
+          "intersocks-"
+        ],
+        "strategy": {
+          "type": "random"
+        },
+        "tag": "loadbalance"
+      }
+    ],
     "rules": [
       {
-        "type": "field",
         "inboundTag": [
           "api"
         ],
-        "outboundTag": "api"
+        "outboundTag": "api",
+        "type": "field"
       },
       {
-        "type": "field",
-        "outboundTag": "blocked",
         "ip": [
           "geoip:private"
-        ]
+        ],
+        "outboundTag": "blocked",
+        "type": "field"
       },
       {
-        "type": "field",
         "outboundTag": "blocked",
         "protocol": [
           "bittorrent"
-        ]
+        ],
+        "type": "field"
+      },
+      {
+        "balancerTag": "loadbalance",
+        "enabled": true,
+        "port": "0-65535",
+        "type": "field"
       }
     ]
   },
